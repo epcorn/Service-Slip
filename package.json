@@ -8,8 +8,8 @@
     "start": "node server.js",
     "start-dev": "nodemon server.js",
     "setup-production": "npm run install-client && npm run build-client && npm install",
-    "install-client": "cd client && npm install",
-    "build-client": "cd client && npm run build"
+    "install-client": "npm install --prefix client",
+    "build-client": "npm run build --prefix client"
   },
   "keywords": [],
   "author": "",
