@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "start-dev": "nodemon server.js",
-    "setup-production": "npm run install-client && npm run build-client && npm install && rm -rf client/node_modules",
+    "setup-production": "npm run install-client && npm run build-client && rm -rf client/node_modules",
     "install-client": "npm install --prefix client",
     "build-client": "npm run build --prefix client"
   },
