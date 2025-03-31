@@ -5,11 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
     "start-dev": "nodemon server.js",
-    "setup-production": "npm run install-client && npm run build-client && rm -rf client/node_modules",
-    "install-client": "npm install --prefix client",
-    "build-client": "npm run build --prefix client"
+    "start": "node server.js",
+    "setup-production": "pwd && npm run install-client && npm run build-client && npm install && rm -rf client/node_modules",
+    "install-client": "pwd && cd client && npm install && pwd",
+    "build-client": "pwd && cd client && pwd && npm run build"
   },
   "keywords": [],
   "author": "",
