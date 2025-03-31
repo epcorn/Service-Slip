@@ -1,11 +1,12 @@
 {
-  "name": "delivery-challan",
+  "name": "service-slip",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "nodemon server.js",
+    "start-dev": "nodemon server.js",
+    "start": "node server.js",
     "setup-production": "npm run install-client && npm run build-client && npm install",
     "install-client": "cd client && npm install",
     "build-client": "cd client && npm run build"
