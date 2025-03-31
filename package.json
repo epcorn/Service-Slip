@@ -2,12 +2,12 @@
   "name": "delivery-challan",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
     "start-dev": "nodemon server.js",
     "start": "node server.js",
-    "setup-production": "pwd && npm run install-client && npm run build-client && npm install && rm -rf client/node_modules",
+    "setup-production": "pwd && npm run install-client && npm run build-client && rm -rf client/node_modules",
     "install-client": "pwd && cd client && npm install && pwd",
     "build-client": "pwd && cd client && pwd && npm run build"
   },
