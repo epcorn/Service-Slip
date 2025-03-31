@@ -7,9 +7,9 @@
   "scripts": {
     "start-dev": "nodemon server.js",
     "start": "node server.js",
-    "setup-production": "npm run install-client && npm run build-client && npm install",
-    "install-client": "cd client && npm install --include=dev",
-    "build-client": "cd client && npm run build"
+    "setup-production": "pwd && npm run install-client && npm run build-client && npm install && rm -rf client/node_modules",
+    "install-client": "pwd && cd client && npm install && pwd",
+    "build-client": "pwd && cd client && pwd && npm run build"
   },
   "keywords": [],
   "author": "",
