@@ -41,13 +41,47 @@ export const challanSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Challan"],
     }),
+
+    // =============================================
+    // === UPDATED chartData endpoint definition ===
+    // =============================================
     chartData: builder.query({
-      query: () => ({
-        url: "/api/challan/chartData",
-      }),
+      // The query function now accepts an argument, typically an object.
+      // Let's call it 'filters'. It might be undefined/null if no filters are applied.
+      query: (filters) => {
+        // Prepare the params object based on the filters received.
+        // Use optional chaining filters?.fieldName for safety if 'filters' might be null/undefined.
+        const params = {
+          year: filters?.year,
+          month: filters?.month,
+          startDate: filters?.startDate,
+          endDate: filters?.endDate,
+        };
+
+        // Clean the params object to remove any keys with null, undefined or empty string values.
+        // This prevents sending empty query parameters like &year= or &month=
+        const cleanParams = Object.fromEntries(
+          Object.entries(params).filter(([_, v]) => v != null && v !== "")
+        );
+
+        // Return the configuration object for the request.
+        // RTK Query will automatically append `cleanParams` as URL query parameters.
+        // e.g., /api/challan/chartData?year=2024&month=12
+        return {
+          url: "/api/challan/chartData",
+          params: cleanParams,
+        };
+      },
+      // Keep the existing providesTags - invalidating "Challan" will now refetch chart data
+      // respecting the filters currently applied by the component.
       providesTags: ["Challan"],
+      // Keep the existing keepUnusedDataFor setting.
       keepUnusedDataFor: 1,
     }),
+    // =============================================
+    // === END UPDATED chartData definition ===
+    // =============================================
+
     unverifiedChallan: builder.query({
       query: ({ search, status }) => ({
         url: "/api/challan/unverified",
@@ -68,7 +102,7 @@ export const challanSlice = apiSlice.injectEndpoints({
       query: () => ({
         url: "/api/challan/operatorComments",
       }),
-      providesTags: ["Admin"],
+      providesTags: ["Admin"], // Note: This still provides "Admin" tag
     }),
     cancelChallan: builder.mutation({
       query: ({ id, data }) => ({
@@ -89,13 +123,14 @@ export const challanSlice = apiSlice.injectEndpoints({
   }),
 });
 
+// Ensure this export includes useChartDataQuery
 export const {
   useCreateChallanMutation,
   useUpdateChallanMutation,
   useSingleChallanQuery,
   useAllChallanQuery,
   useVerifyAmountMutation,
-  useChartDataQuery,
+  useChartDataQuery, // Make sure this hook is exported
   useUnverifiedChallanQuery,
   useMakeInvoiceMutation,
   useOperatorCommentsQuery,
