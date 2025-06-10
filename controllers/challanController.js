@@ -218,57 +218,50 @@ export const updateChallan = async (req, res) => {
 
 // Original getAllChallan function (Unchanged)
 export const getAllChallan = async (req, res) => {
-  const { search, page, status } = req.query;
-  // Basic sanitization/validation for page
+  const { search, page, status, sort } = req.query; // <<< Add 'sort' here
+
   let pageNumber = parseInt(page) || 1;
   if (pageNumber < 1) pageNumber = 1;
-  const limit = 10; // Define limit constant
+  const limit = 10;
   const skip = limit * (pageNumber - 1);
 
-  // Build the initial match stage for search
   let initialMatch = {};
   if (search) {
     const searchRegex = { $regex: search, $options: "i" };
     initialMatch = {
-      $or: [
-        { number: searchRegex },
-        { "shipToDetails.name": searchRegex },
-        // Add other fields to search if needed
-        // { "shipToDetails.contactNo": searchRegex },
-      ],
+      $or: [{ number: searchRegex }, { "shipToDetails.name": searchRegex }],
     };
   }
 
-  // Build the pipeline stages
   let pipeline = [{ $match: initialMatch }];
 
-  // Add status filtering stage if needed
   if (status && status !== "All") {
     pipeline.push(
-      { $match: { "update.0": { $exists: true } } }, // Ensure update array exists
+      { $match: { "update.0": { $exists: true } } },
       { $addFields: { lastStatus: { $arrayElemAt: ["$update", -1] } } },
       { $match: { "lastStatus.status": status } }
     );
   }
 
-  // Add sorting stage (must be before skip/limit for correct pagination)
-  pipeline.push({ $sort: { createdAt: -1 } }); // Sort by creation date descending
+  // --- MODIFIED SORTING LOGIC ---
+  let sortOrder = { createdAt: -1 }; // Default to latest first (descending)
+  if (sort === "asc") {
+    sortOrder = { createdAt: 1 }; // Oldest first (ascending)
+  }
+  pipeline.push({ $sort: sortOrder }); // Apply dynamic sort order
+  // --- END MODIFIED SORTING LOGIC ---
 
   try {
-    // Pipeline for counting total matching documents
     const countPipeline = [...pipeline, { $count: "totalCount" }];
-
-    // Pipeline for fetching paginated documents
     const dataPipeline = [...pipeline, { $skip: skip }, { $limit: limit }];
 
-    // Execute both pipelines (could run in parallel if needed, but sequential is simpler)
     const countResult = await Challan.aggregate(countPipeline);
     const challans = await Challan.aggregate(dataPipeline);
 
     const count = countResult[0]?.totalCount || 0;
     const pages = Math.ceil(count / limit);
 
-    return res.json({ challans, pages: pages }); // Return calculated pages
+    return res.json({ challans, pages: pages });
   } catch (error) {
     console.error("Get All Challan Error:", error);
     res.status(500).json({ msg: "Server error, try again later" });

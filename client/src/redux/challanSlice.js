@@ -25,14 +25,22 @@ export const challanSlice = apiSlice.injectEndpoints({
       providesTags: ["Challan"],
       keepUnusedDataFor: 1,
     }),
+    // =============================================
+    // === UPDATED allChallan endpoint definition ===
+    // =============================================
     allChallan: builder.query({
-      query: ({ search, page, status }) => ({
+      // Now accepts a 'sort' parameter in the query object
+      query: ({ search, page, status, sort = "desc" }) => ({
+        // Added 'sort' with a default value
         url: "/api/challan",
-        params: { search, page, status },
+        params: { search, page, status, sort }, // Pass 'sort' to params
       }),
       providesTags: ["Challan"],
       keepUnusedDataFor: 1,
     }),
+    // =============================================
+    // === END UPDATED allChallan definition ===
+    // =============================================
     verifyAmount: builder.mutation({
       query: ({ id, data }) => ({
         url: `/api/challan/verify/${id}`,
@@ -123,12 +131,12 @@ export const challanSlice = apiSlice.injectEndpoints({
   }),
 });
 
-// Ensure this export includes useChartDataQuery
+// Ensure this export includes useChartDataQuery and useAllChallanQuery
 export const {
   useCreateChallanMutation,
   useUpdateChallanMutation,
   useSingleChallanQuery,
-  useAllChallanQuery,
+  useAllChallanQuery, // Make sure this hook is exported
   useVerifyAmountMutation,
   useChartDataQuery, // Make sure this hook is exported
   useUnverifiedChallanQuery,

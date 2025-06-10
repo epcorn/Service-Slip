@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AiOutlineClose, AiOutlineSearch } from "react-icons/ai";
 import { Link } from "react-router-dom";
 import { AlertMessage, Button, Loading } from "../components";
@@ -12,16 +12,58 @@ const Home = () => {
   const [status, setStatus] = useState("All");
   const [tempSearch, setTempSearch] = useState("");
   const [page, setPage] = useState(1);
+  // --- ADDED: New state for sorting order ---
+  const [sortOrder, setSortOrder] = useState("desc"); // Default to 'desc' (latest first)
+  // --- END ADDED ---
+
   const { user } = useSelector((store) => store.helper);
 
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayClass, setOverlayClass] = useState("");
+  const loadingStartTime = useRef(0);
+
+  // --- UPDATED: Pass sortOrder to useAllChallanQuery ---
   const { data, isLoading, isFetching, error } = useAllChallanQuery({
     search,
     page,
     status,
+    sort: sortOrder, // Pass the new sortOrder state
   });
+  // --- END UPDATED ---
+
+  // Effect to manage overlay visibility and animation based on isFetching and minimum display time
+  useEffect(() => {
+    const MIN_LOAD_TIME = 15; // Changed to 15 milliseconds
+    let timer;
+
+    if (isFetching) {
+      loadingStartTime.current = Date.now();
+      setShowOverlay(true);
+      setOverlayClass("fade-in");
+    } else {
+      const timeElapsed = Date.now() - loadingStartTime.current;
+      const timeRemaining = MIN_LOAD_TIME - timeElapsed;
+
+      if (timeRemaining > 0) {
+        timer = setTimeout(() => {
+          setOverlayClass("fade-out");
+          const fadeOutTimer = setTimeout(() => setShowOverlay(false), 300); // Wait for fade-out anim
+          return () => clearTimeout(fadeOutTimer);
+        }, timeRemaining);
+      } else {
+        setOverlayClass("fade-out");
+        timer = setTimeout(() => setShowOverlay(false), 300); // Wait for fade-out anim
+      }
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isFetching]); // No need to add sortOrder here as RTK Query handles refetching automatically when params change
 
   const handleSearch = (e) => {
     e.preventDefault();
+    setPage(1);
     setSearch(tempSearch);
   };
 
@@ -29,13 +71,24 @@ const Home = () => {
     setTempSearch("");
     setSearch("");
     setStatus("All");
+    setPage(1);
+    // --- ADDED: Reset sortOrder on clear search ---
+    setSortOrder("desc"); // Reset to default sort order
+    // --- END ADDED ---
   };
+
+  // --- ADDED: Handler for sort order change ---
+  const handleSortChange = (e) => {
+    setSortOrder(e.target.value);
+    setPage(1); // Reset to page 1 when sort order changes
+  };
+  // --- END ADDED ---
 
   const progress = (status) => {
     let text = "text-blue-700 bg-blue-100";
     if (status === "Completed") text = "text-green-700 bg-green-100";
     else if (status === "Partially Completed")
-      text = "text-pink-700 bg-ping-100";
+      text = "text-pink-700 bg-pink-100";
     else if (status === "Cancelled" || status === "Not Completed")
       text = "text-red-700 bg-red-100";
 
@@ -48,11 +101,39 @@ const Home = () => {
     );
   };
 
-  const pages = Array.from({ length: data?.pages }, (_, index) => index + 1);
+  const totalPages = data?.pages || 1;
+  const maxPageButtons = 5;
+
+  let startPageInBlock;
+  let endPageInBlock;
+
+  const currentBlock = Math.ceil(page / maxPageButtons);
+
+  startPageInBlock = (currentBlock - 1) * maxPageButtons + 1;
+  endPageInBlock = Math.min(startPageInBlock + maxPageButtons - 1, totalPages);
+
+  if (page < startPageInBlock || page > endPageInBlock) {
+    setPage(Math.max(1, startPageInBlock));
+  }
+
+  const pagesToDisplay = Array.from(
+    { length: endPageInBlock - startPageInBlock + 1 },
+    (_, index) => startPageInBlock + index
+  );
+
+  const goToPrevBlock = () => {
+    const newPage = Math.max(1, startPageInBlock - maxPageButtons);
+    setPage(newPage);
+  };
+
+  const goToNextBlock = () => {
+    const newPage = Math.min(totalPages, endPageInBlock + 1);
+    setPage(newPage);
+  };
 
   return (
     <>
-      {isLoading || isFetching ? (
+      {isLoading ? (
         <Loading />
       ) : (
         error && <AlertMessage>{error?.data?.msg || error.error}</AlertMessage>
@@ -81,7 +162,10 @@ const Home = () => {
               </div>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(1);
+                }}
                 className="border-2 rounded-md mr-2 py-1 w-44"
               >
                 {[
@@ -95,6 +179,18 @@ const Home = () => {
                   </option>
                 ))}
               </select>
+
+              {/* --- ADDED: Sort Order Dropdown --- */}
+              <select
+                value={sortOrder}
+                onChange={handleSortChange} // Use the new handler
+                className="border-2 rounded-md mr-2 py-1 w-44"
+              >
+                <option value="desc">Latest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+              {/* --- END ADDED --- */}
+
               <Button
                 type="submit"
                 label="Search"
@@ -115,35 +211,42 @@ const Home = () => {
             </div>
           </div>
         </div>
-        {data?.challans.length === 0 && (
+        {data?.challans.length === 0 && !isFetching && (
           <h6 className="text-red-500 text-xl font-semibold text-center mb-2">
             No Service Slip Found
           </h6>
         )}
-        <div className="overflow-y-auto my-4">
+        <div className="overflow-y-auto my-4 relative">
+          {showOverlay && (
+            <div
+              className={`absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10 ${overlayClass}`}
+            >
+              <Loading />
+            </div>
+          )}
           <table className="w-full border whitespace-nowrap border-neutral-500">
             <thead>
               <tr className="h-12 w-full text-md leading-none text-gray-600">
-                <th className="font-bold text-left  border-neutral-800 border-2 w-20 px-3">
+                <th className="font-bold text-left  border-neutral-800 border-2 w-20 px-3">
                   Slip Number
                 </th>
-                <th className="font-bold text-center  border-neutral-800 border-2 w-28 px-3">
+                <th className="font-bold text-center  border-neutral-800 border-2 w-28 px-3">
                   Date
                 </th>
-                <th className="font-bold text-left  border-neutral-800 border-2 px-3">
+                <th className="font-bold text-left  border-neutral-800 border-2 px-3">
                   Customer Name
                 </th>
-                <th className="font-bold text-left  border-neutral-800 border-2 px-3">
+                <th className="font-bold text-left  border-neutral-800 border-2 px-3">
                   Sales Representative
                 </th>
-                <th className="font-bold text-center  border-neutral-800 border-2 w-32 px-3">
+                <th className="font-bold text-center  border-neutral-800 border-2 w-32 px-3">
                   Service Date
                 </th>
-                <th className="font-bold max-w-[100px] text-center  border-neutral-800 border-2 w-40 px-3">
+                <th className="font-bold max-w-[100px] text-center  border-neutral-800 border-2 w-40 px-3">
                   Progress
                 </th>
                 {user.role !== "Service Operator" && (
-                  <th className="font-bold text-center  border-neutral-800 border-2 w-24 px-2">
+                  <th className="font-bold text-center  border-neutral-800 border-2 w-24 px-2">
                     Action
                   </th>
                 )}
@@ -180,7 +283,7 @@ const Home = () => {
                       <Link to={`/challan/${challan._id}`}>
                         <Button label="Details" height="h-7" small />
                       </Link>
-                      <a href={challan.file}>
+                      <a href={challan.file} target="_blank" rel="noreferrer">
                         <Button
                           label="Download"
                           color="bg-emerald-500"
@@ -195,13 +298,29 @@ const Home = () => {
             </tbody>
           </table>
         </div>
-        {pages.length > 1 && (
+        {totalPages > 1 && (
           <nav className="mb-4">
             <ul className="list-style-none flex justify-center mt-2">
-              {pages.map((item) => (
+              {/* Previous Block Button */}
+              <li className="pr-1">
+                <button
+                  className={`relative block rounded px-3 py-1.5 text-sm transition-all duration-300 ${
+                    startPageInBlock === 1
+                      ? "bg-gray-300 text-gray-700 cursor-not-allowed"
+                      : "bg-neutral-700 text-white hover:bg-blue-400"
+                  }`}
+                  onClick={goToPrevBlock}
+                  disabled={startPageInBlock === 1}
+                >
+                  &lt; {/* HTML entity for < */}
+                </button>
+              </li>
+
+              {/* Page Numbers */}
+              {pagesToDisplay.map((item) => (
                 <li className="pr-1" key={item}>
                   <button
-                    className={`relative block rounded px-3 py-1.5 text-sm transition-all duration-30  ${
+                    className={`relative block rounded px-3 py-1.5 text-sm transition-all duration-300 ${
                       page === item ? "bg-blue-400" : "bg-neutral-700"
                     } text-white hover:bg-blue-400`}
                     onClick={() => setPage(item)}
@@ -210,6 +329,21 @@ const Home = () => {
                   </button>
                 </li>
               ))}
+
+              {/* Next Block Button */}
+              <li className="pr-1">
+                <button
+                  className={`relative block rounded px-3 py-1.5 text-sm transition-all duration-300 ${
+                    endPageInBlock === totalPages
+                      ? "bg-gray-300 text-gray-700 cursor-not-allowed"
+                      : "bg-neutral-700 text-white hover:bg-blue-400"
+                  }`}
+                  onClick={goToNextBlock}
+                  disabled={endPageInBlock === totalPages}
+                >
+                  &gt; {/* HTML entity for > */}
+                </button>
+              </li>
             </ul>
           </nav>
         )}
